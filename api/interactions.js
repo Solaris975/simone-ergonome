@@ -1,7 +1,7 @@
 import { verifyKey } from 'discord-interactions';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 
-// Obligatoire pour laisser Discord vérifier la signature de sécurité
+// Obligatoire pour laisser Discord vérifier la sécurité
 export const config = {
     api: { bodyParser: false }
 };
@@ -14,64 +14,56 @@ const llm = new ChatGoogleGenerativeAI({
 });
 
 export default async function handler(req, res) {
-    // 1. On bloque les curieux qui n'utilisent pas la bonne méthode
+    // 1. On recale les navigateurs web
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Méthode non autorisée' });
     }
 
     try {
-        console.log("📥 Nouvelle requête reçue de Discord !");
+        // 2. Lecture indestructible du corps de la requête (Le remède anti-Vercel)
+        const rawBody = await new Promise((resolve, reject) => {
+            let body = '';
+            req.on('data', chunk => { body += chunk.toString(); });
+            req.on('end', () => resolve(body));
+            req.on('error', reject);
+        });
 
-        // 2. Lecture ultra-sécurisée du message de Discord
-        const chunks = [];
-        for await (const chunk of req) {
-            chunks.push(chunk);
-        }
-        const rawBody = Buffer.concat(chunks).toString('utf8');
-        
-        // 3. Vérification cryptographique
+        // 3. Le remède anti-bug absolu : suppression des espaces invisibles (.trim)
         const signature = req.headers['x-signature-ed25519'];
         const timestamp = req.headers['x-signature-timestamp'];
+        const publicKey = (process.env.DISCORD_PUBLIC_KEY || '').trim();
 
-        const isValidRequest = verifyKey(rawBody, signature, timestamp, process.env.DISCORD_PUBLIC_KEY);
+        // 4. Vérification cryptographique stricte
+        const isValidRequest = verifyKey(rawBody, signature, timestamp, publicKey);
 
         if (!isValidRequest) {
-            console.error("❌ Échec : La signature ne correspond pas à la clé publique.");
             return res.status(401).json({ error: 'Signature invalide' });
         }
 
-        console.log("✅ Signature valide, ouverture du paquet...");
         const interaction = JSON.parse(rawBody);
 
-        // 4. L'ÉPREUVE DU PING (C'est ici que ça bloquait)
+        // 5. L'ÉPREUVE DU PING DE DISCORD (La réponse exacte qu'il attend)
         if (interaction.type === 1) {
-            console.log("🏓 Ping Discord reçu, renvoi de l'accusé de réception strict...");
-            res.setHeader('Content-Type', 'application/json');
-            return res.status(200).send(JSON.stringify({ type: 1 }));
+            return res.status(200).json({ type: 1 });
         }
 
-        // 5. Traitement de ta commande /resume
+        // 6. Traitement de ta commande /resume
         if (interaction.type === 2 && interaction.data.name === 'resume') {
-            console.log("🚀 Commande /resume déclenchée par l'utilisateur !");
             const urlCible = interaction.data.options[0].value;
 
-            // On demande à Discord de patienter (Type 5 = "Simone réfléchit...")
-            res.setHeader('Content-Type', 'application/json');
-            res.status(200).send(JSON.stringify({ type: 5 }));
+            // On dit immédiatement à Discord "J'ai bien reçu, je réfléchis"
+            res.status(200).json({ type: 5 });
 
-            // On lance la lecture de l'article en arrière-plan
+            // Traitement IA en arrière-plan
             try {
                 const jinaRes = await fetch(`https://r.jina.ai/${urlCible}`);
                 let textePage = await jinaRes.text();
-                textePage = textePage.substring(0, 15000); // Limite de mémoire
+                textePage = textePage.substring(0, 15000);
 
-                const prompt = `Tu es Simone l'Ergonome. On m'a envoyé ce lien : ${urlCible}.
-                Résume le contenu de cette page web en 3 ou 4 puces claires et percutantes. 
-                Adopte ton ton habituel d'experte UI/UX. Voici le contenu brut :\n\n${textePage}`;
-                
+                const prompt = `Tu es Simone l'Ergonome. Résume cet article en 3 ou 4 puces. Lien : ${urlCible}. Contenu :\n\n${textePage}`;
                 const reponseAI = await llm.invoke(prompt);
 
-                // On envoie le résultat final pour remplacer le "Simone réfléchit..."
+                // Envoi de la réponse finale à la place du message d'attente
                 await fetch(`https://discord.com/api/v10/webhooks/${process.env.DISCORD_APP_ID}/${interaction.token}/messages/@original`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
@@ -83,18 +75,12 @@ export default async function handler(req, res) {
                         }]
                     })
                 });
-                console.log("✅ Résumé envoyé avec succès sur Discord !");
             } catch (erreur) {
-                console.error("❌ Erreur pendant la génération du résumé :", erreur);
+                console.error("Erreur IA :", erreur);
             }
-            return; 
         }
-
-        console.warn("⚠️ Type d'interaction inconnu :", interaction.type);
-        return res.status(400).json({ error: 'Type inconnu' });
-
     } catch (error) {
-        console.error("🔥 Crash critique du serveur :", error);
-        return res.status(500).json({ error: 'Erreur interne du serveur' });
+        console.error("Erreur globale :", error);
+        return res.status(500).json({ error: 'Erreur interne' });
     }
 }
