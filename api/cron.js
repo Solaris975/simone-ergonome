@@ -1,6 +1,8 @@
 import Parser from 'rss-parser';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 
+export const maxDuration = 120;
+
 const llm = new ChatGoogleGenerativeAI({
     model: "gemini-3-flash-preview",
     maxOutputTokens: 1024,
