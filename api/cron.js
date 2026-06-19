@@ -84,12 +84,28 @@ export default async function handler(request, response) {
         const reponseAI = await llm.invoke(prompt);
         let rapportFinal = reponseAI.content;
 
-        // 5. Envoyer la grande revue sur Discord
-        await fetch(process.env.DISCORD_WEBHOOK_URL, {
+       // 5. Envoyer la grande revue sur Discord via un "Embed" (Limite poussée à 4096 caractères)
+        const discordPayload = {
+            embeds: [
+                {
+                    title: "📰 La Revue de Presse UI/UX de Simone",
+                    description: rapportFinal.substring(0, 4000), // Sécurité anti-crash
+                    color: 16753920 // Un beau code couleur jaune/orange
+                }
+            ]
+        };
+
+        const discordReq = await fetch(process.env.DISCORD_WEBHOOK_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content: rapportFinal })
+            body: JSON.stringify(discordPayload)
         });
+
+        // On vérifie l'accusé de réception de Discord !
+        if (!discordReq.ok) {
+            const erreurDiscord = await discordReq.text();
+            throw new Error(`Discord a refusé le message : ${erreurDiscord}`);
+        }
 
         return response.status(200).json({ success: true, message: "La grande revue de presse a été envoyée !" });
 
