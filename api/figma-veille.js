@@ -2,8 +2,8 @@ export default async function handler(req, res) {
     try {
         console.log("🕵️‍♀️ Lancement de la veille Figma...");
 
-        // 1. On lit le flux RSS officiel de Figma grâce à un convertisseur JSON public
-        const rssUrl = "https://www.figma.com/blog/feed/";
+        // 1. Nouvelle source : Le flux RSS officiel des annonces Figma
+        const rssUrl = "https://forum.figma.com/c/announcements/15.rss";
         const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`;
 
         const response = await fetch(apiUrl);
@@ -13,24 +13,23 @@ export default async function handler(req, res) {
             return res.status(500).json({ error: "Impossible de lire le flux Figma." });
         }
 
-        // 2. On isole le tout dernier article publié
+        // 2. On isole la toute dernière annonce
         const dernierArticle = data.items[0];
 
-        // 3. Préparation et envoi du colis vers Discord
+        // 3. Préparation et envoi vers Discord
         const discordWebhookUrl = process.env.DISCORD_WEBHOOK_URL;
 
         await fetch(discordWebhookUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                username: "Simone - Veille Figma",
+                username: "Simone l'Ergonome",
                 embeds: [{
-                    title: `✨ Nouvelle publication : ${dernierArticle.title}`,
+                    title: `✨ Nouvelle mise à jour : ${dernierArticle.title}`,
                     url: dernierArticle.link,
-                    description: "Un nouvel article vient d'être publié par l'équipe Figma !",
-                    color: 16733952, // Couleur inspirée de l'interface Figma
-                    thumbnail: { url: dernierArticle.thumbnail },
-                    footer: { text: "Détecté par Simone" }
+                    description: "Figma vient de publier une nouvelle annonce officielle !",
+                    color: 16733952, // Orange/Rouge Figma
+                    footer: { text: "Veille automatique Figma" }
                 }]
             })
         });
