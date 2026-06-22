@@ -1,8 +1,12 @@
 {
   "crons": [
     {
-      "path": "/api/cron",
-      "schedule": "0 9 * * *"
+      "path": "/api/ton-fichier-de-veille-classique",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/figma-veille",
+      "schedule": "0 6 * * *"
     }
   ]
 }
